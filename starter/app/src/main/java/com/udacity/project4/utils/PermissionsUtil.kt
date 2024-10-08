@@ -58,12 +58,14 @@ fun registerNotificationsPermissionLauncher(fragment: Fragment): ActivityResultL
     }
 }
 
-fun registerLocationPermissionLauncher(fragment: Fragment): ActivityResultLauncher<String> {
+fun registerLocationPermissionLauncher(fragment: Fragment, resumeFunction : () -> Unit): ActivityResultLauncher<String> {
     return fragment.registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
         if (!it) {
             createPermissionDeniedSnackbar(fragment, locationPermissions.toastMessage)
+        } else {
+            resumeFunction()
         }
     }
 }

@@ -11,6 +11,7 @@
                   <entry key="API_29" value="120" />
                   <entry key="Duration" value="90" />
                   <entry key="Tests" value="360" />
+                  <entry key="samsung SM-S918U" value="120" />
                 </map>
               </option>
             </AndroidTestResultsTableState>
@@ -51,6 +52,7 @@
                   <entry key="API_35" value="120" />
                   <entry key="Duration" value="90" />
                   <entry key="Tests" value="360" />
+                  <entry key="samsung SM-S918U" value="120" />
                 </map>
               </option>
             </AndroidTestResultsTableState>

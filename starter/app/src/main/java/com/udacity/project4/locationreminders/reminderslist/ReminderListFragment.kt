@@ -56,9 +56,6 @@ class ReminderListFragment : BaseFragment() {
         binding.addReminderFAB.setOnClickListener {
             navigateToAddReminder()
         }
-
-        val permissionsList = arrayOf(locationPermissions, notificationsPermissions)
-        multiplePermissionsRequest(this, permissionsLauncher, permissionsList)
     }
 
     override fun onResume() {

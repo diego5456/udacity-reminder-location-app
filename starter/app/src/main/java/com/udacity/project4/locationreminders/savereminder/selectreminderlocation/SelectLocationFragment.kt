@@ -2,6 +2,7 @@ package com.udacity.project4.locationreminders.savereminder.selectreminderlocati
 
 
 import android.annotation.SuppressLint
+import android.content.IntentSender
 import android.location.Location
 import android.os.Bundle
 import android.util.Log
@@ -11,9 +12,15 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.VisibleForTesting
 import androidx.databinding.DataBindingUtil
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -29,6 +36,7 @@ import com.udacity.project4.base.BaseFragment
 import com.udacity.project4.base.NavigationCommand
 import com.udacity.project4.databinding.FragmentSelectLocationBinding
 import com.udacity.project4.locationreminders.savereminder.SaveReminderViewModel
+import com.udacity.project4.utils.REQUEST_TURN_DEVICE_LOCATION_ON
 import com.udacity.project4.utils.checkPermission
 import com.udacity.project4.utils.locationPermissions
 import com.udacity.project4.utils.permissionRequests
@@ -42,7 +50,9 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
     // Use Koin to get the view model of the SaveReminder
     override val _viewModel: SaveReminderViewModel by inject()
-    private val locationPermissionsLauncher = registerLocationPermissionLauncher(this)
+    private val locationPermissionsLauncher = registerLocationPermissionLauncher(this){
+        enableMyLocation()
+    }
     private lateinit var binding: FragmentSelectLocationBinding
     val defaultLocation = LatLng(-34.0, 151.0)
     private var coordinates: LatLng? = null
@@ -53,6 +63,14 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
     private lateinit var map: GoogleMap
     private lateinit var mapFragment: SupportMapFragment
+
+    private val startActivityResult = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == REQUEST_TURN_DEVICE_LOCATION_ON) {
+            checkDeviceLocation(false)
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -66,12 +84,6 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
         setHasOptionsMenu(true)
         setDisplayHomeAsUpEnabled(true)
-
-        permissionRequests(
-            this,
-            locationPermissionsLauncher,
-            locationPermissions
-        )
         onLocationSelected()
         return binding.root
     }
@@ -88,6 +100,47 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
             )
         }
     }
+
+    private fun checkDeviceLocation(
+        resolve: Boolean = true
+    ) {
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_LOW_POWER,
+            1000
+        ).build()
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .build()
+
+        val settingsClient = LocationServices.getSettingsClient(requireActivity())
+        val locationSettingsResponseTask = settingsClient.checkLocationSettings(builder)
+
+        locationSettingsResponseTask.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException && resolve) {
+                try {
+                    val intentSenderRequest =
+                        IntentSenderRequest.Builder(exception.resolution).build()
+                    startActivityResult.launch(intentSenderRequest)
+                } catch (sendEx: IntentSender.SendIntentException) {
+                    Log.d(com.udacity.project4.locationreminders.TAG, "Error getting location settings resolution: ${sendEx.message}")
+                }
+            } else {
+                Snackbar.make(
+                    requireView(),
+                    R.string.location_required_error,
+                    Snackbar.LENGTH_INDEFINITE
+                ).setAction(android.R.string.ok) {
+                    checkDeviceLocation()
+                }.show()
+            }
+        }
+
+        locationSettingsResponseTask.addOnSuccessListener {
+            enableMyLocation()
+            getDeviceLocation()
+        }
+    }
+
 
     @SuppressLint("MissingPermission")
     private fun getDeviceLocation() {
@@ -168,7 +221,6 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
     }
 
     private fun setMapClick(map: GoogleMap) {
-        enableMyLocation()
         map.setOnMapClickListener { latLng ->
             currentMarker?.remove()
             coordinates = latLng
@@ -213,8 +265,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         map = googleMap
         setMapStyle(map)
         setMapClick(map)
-        enableMyLocation()
-        getDeviceLocation()
+        checkDeviceLocation()
         setPoiClick(map)
         Log.d(TAG, "Map is ready")
     }
