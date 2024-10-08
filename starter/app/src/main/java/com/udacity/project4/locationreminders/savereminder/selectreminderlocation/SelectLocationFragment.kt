@@ -51,7 +51,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
     // Use Koin to get the view model of the SaveReminder
     override val _viewModel: SaveReminderViewModel by inject()
     private val locationPermissionsLauncher = registerLocationPermissionLauncher(this){
-        enableMyLocation()
+        checkDeviceLocation()
     }
     private lateinit var binding: FragmentSelectLocationBinding
     val defaultLocation = LatLng(-34.0, 151.0)
@@ -136,7 +136,6 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         }
 
         locationSettingsResponseTask.addOnSuccessListener {
-            enableMyLocation()
             getDeviceLocation()
         }
     }
@@ -265,6 +264,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         map = googleMap
         setMapStyle(map)
         setMapClick(map)
+        enableMyLocation()
         checkDeviceLocation()
         setPoiClick(map)
         Log.d(TAG, "Map is ready")
