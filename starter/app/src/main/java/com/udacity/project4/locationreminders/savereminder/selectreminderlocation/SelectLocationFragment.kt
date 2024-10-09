@@ -51,7 +51,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
     // Use Koin to get the view model of the SaveReminder
     override val _viewModel: SaveReminderViewModel by inject()
     private val locationPermissionsLauncher = registerLocationPermissionLauncher(this){
-        checkDeviceLocation()
+        enableMyLocation()
     }
     private lateinit var binding: FragmentSelectLocationBinding
     val defaultLocation = LatLng(-34.0, 151.0)
@@ -68,7 +68,7 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == REQUEST_TURN_DEVICE_LOCATION_ON) {
-            checkDeviceLocation(false)
+            enableMyLocation()
         }
     }
 
@@ -247,12 +247,12 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
     private fun setMapStyle(map: GoogleMap) {
         try {
-                map.setMapStyle(
-                    MapStyleOptions.loadRawResourceStyle(
-                        requireContext(),
-                        R.raw.map_style
-                    )
+            map.setMapStyle(
+                MapStyleOptions.loadRawResourceStyle(
+                    requireContext(),
+                    R.raw.map_style
                 )
+            )
             Log.d(TAG, "Style parsing success")
         } catch (e: Exception) {
             Log.e(TAG, "Can't find style. Error: ", e)
