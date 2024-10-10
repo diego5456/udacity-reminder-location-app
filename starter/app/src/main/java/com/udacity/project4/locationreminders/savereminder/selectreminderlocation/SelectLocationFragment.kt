@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.IntentSender
 import android.location.Location
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
@@ -17,7 +18,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.VisibleForTesting
 import androidx.databinding.DataBindingUtil
 import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.LocationSettingsRequest
 import com.google.android.gms.location.Priority
@@ -50,10 +54,11 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
     // Use Koin to get the view model of the SaveReminder
     override val _viewModel: SaveReminderViewModel by inject()
-    private val locationPermissionsLauncher = registerLocationPermissionLauncher(this){
+    private val locationPermissionsLauncher = registerLocationPermissionLauncher(this) {
         enableMyLocation()
     }
     private lateinit var binding: FragmentSelectLocationBinding
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     val defaultLocation = LatLng(-34.0, 151.0)
     private var coordinates: LatLng? = null
 
@@ -63,6 +68,8 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
     private lateinit var map: GoogleMap
     private lateinit var mapFragment: SupportMapFragment
+    private lateinit var locationCallback: LocationCallback
+
 
     private val startActivityResult = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -81,9 +88,24 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
         binding.viewModel = _viewModel
         binding.lifecycleOwner = this
-
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
         setHasOptionsMenu(true)
         setDisplayHomeAsUpEnabled(true)
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                for (location in locationResult.locations) {
+                    if (location != null) {
+                        val currentLatLong = LatLng(location.latitude, location.longitude)
+                        val cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentLatLong, 15f)
+                        map.animateCamera(cameraUpdate)
+                    } else {
+                        Log.d(TAG, "Location null")
+                        map.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 15f))
+                    }
+                }
+            }
+        }
+
         onLocationSelected()
         return binding.root
     }
@@ -122,7 +144,10 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
                         IntentSenderRequest.Builder(exception.resolution).build()
                     startActivityResult.launch(intentSenderRequest)
                 } catch (sendEx: IntentSender.SendIntentException) {
-                    Log.d(com.udacity.project4.locationreminders.TAG, "Error getting location settings resolution: ${sendEx.message}")
+                    Log.d(
+                        com.udacity.project4.locationreminders.TAG,
+                        "Error getting location settings resolution: ${sendEx.message}"
+                    )
                 }
             } else {
                 Snackbar.make(
@@ -143,20 +168,19 @@ class SelectLocationFragment : BaseFragment(), OnMapReadyCallback {
 
     @SuppressLint("MissingPermission")
     private fun getDeviceLocation() {
-        val fusedLocationClient =
-            LocationServices.getFusedLocationProviderClient(requireActivity())
-        fusedLocationClient.lastLocation.addOnSuccessListener { location: Location ->
-            if (location != null) {
-                val currentLatLong = LatLng(location.latitude, location.longitude)
-                val cameraUpdate = CameraUpdateFactory.newLatLngZoom(currentLatLong, 15f)
-                map.animateCamera(cameraUpdate)
-            } else {
-                Log.d(TAG, "Location null")
-                map.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 15f))
-            }
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            10000
+        ).apply {
+            setMinUpdateIntervalMillis(5000) // Fastest interval for location updates (e.g., 5 seconds)
+            setWaitForAccurateLocation(false) // Optional: wait for a more accurate location if needed
+        }.build()
 
-        }
-
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
+        )
     }
 
 
